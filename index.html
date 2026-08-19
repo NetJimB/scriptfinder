@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<!-- ScriptFinder — Version 1.0.0 -->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ScriptFinder</title>
+<style>
+  :root{
+    --bg: #000000;
+    --fg: #ffffff;
+    --sub: #9a9a9a;
+    --card: #141414;
+    --border: #2a2a2a;
+    --accent: #5391fe;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; margin:0; }
+  body{
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overscroll-behavior: none;
+    transition: background .2s ease, color .2s ease;
+  }
+  #app{ min-height:100vh; display:flex; flex-direction:column; }
+
+  header{
+    position:sticky; top:0; z-index:20;
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 18px 16px 12px 18px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .prompt{
+    width:26px; height:22px; border-radius:5px;
+    border: 1.6px solid var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    font-family: "SFMono-Regular", Consolas, "Courier New", monospace;
+    font-size:13px; font-weight:700; color: var(--accent);
+    flex-shrink:0;
+  }
+  .title-wrap{ display:flex; flex-direction:column; }
+  .title{ font-size:19px; font-weight:700; letter-spacing:.2px; }
+  .subtitle{ font-size:11px; color: var(--sub); margin-top:1px; }
+
+  .dots-btn{
+    background:none; border:none; color:var(--fg); font-size:22px;
+    padding:6px 10px; cursor:pointer; border-radius:8px; line-height:1;
+  }
+  .dots-btn:active{ background: var(--card); }
+  .dots-wrap{ display:flex; flex-direction:column; align-items:center; }
+  .header-version{ font-size:9px; color:var(--sub); margin-top:-2px; }
+
+  main{ flex:1; padding: 14px 16px 40px; }
+
+  .search-wrap{ position:relative; margin-bottom:14px; }
+  .search-input{
+    width:100%; padding: 12px 38px 12px 14px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; color: var(--fg); font-size:15px;
+    outline:none;
+  }
+  .search-input::placeholder{ color: var(--sub); }
+  .search-input:focus{ border-color: var(--accent); }
+  .clear-btn{
+    position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    width:24px; height:24px; border-radius:50%;
+    background: var(--border); color: var(--fg); border:none;
+    font-size:13px; cursor:pointer; display:none;
+    align-items:center; justify-content:center;
+  }
+  .clear-btn.show{ display:flex; }
+
+  .chips{ display:flex; gap:8px; overflow-x:auto; padding-bottom:14px; margin-bottom:2px; scrollbar-width:none; }
+  .chips::-webkit-scrollbar{ display:none; }
+  .chip{
+    flex-shrink:0; padding:7px 14px; border-radius:999px;
+    border:1px solid var(--border); background:var(--card);
+    color: var(--sub); font-size:13px; cursor:pointer; white-space:nowrap;
+  }
+  .chip.active{ background: var(--accent); border-color: var(--accent); color:#000; font-weight:600; }
+
+  .results-count{ font-size:12px; color: var(--sub); margin: 4px 2px 10px; }
+
+  .list{ display:flex; flex-direction:column; gap:10px; }
+  .card{
+    display:block; text-decoration:none; color: inherit;
+    background: var(--card); border:1px solid var(--border); border-radius:14px;
+    padding: 14px 14px 12px;
+  }
+  .card:active{ border-color: var(--accent); }
+  .card-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .card-name{ font-size:15.5px; font-weight:700; }
+  .card-cat{
+    flex-shrink:0; font-size:10.5px; font-weight:700; letter-spacing:.3px;
+    text-transform:uppercase; color: var(--accent);
+    border:1px solid var(--accent); border-radius:6px; padding:2px 7px;
+  }
+  .card-desc{ font-size:13.5px; color: var(--sub); margin-top:6px; line-height:1.4; }
+  .card-link{ font-size:11.5px; color: var(--accent); margin-top:9px; display:flex; align-items:center; gap:4px; }
+
+  .empty{ text-align:center; padding: 60px 20px; color: var(--sub); }
+  .empty-title{ color: var(--fg); font-weight:700; font-size:15px; margin-bottom:6px; }
+
+  /* Settings sheet */
+  .overlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.55);
+    opacity:0; pointer-events:none; transition:opacity .18s ease; z-index:30;
+  }
+  .overlay.show{ opacity:1; pointer-events:auto; }
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:31;
+    background: var(--card); border-top:1px solid var(--border);
+    border-radius: 18px 18px 0 0; padding: 10px 20px 26px;
+    transform: translateY(100%); transition: transform .22s ease;
+  }
+  .sheet.show{ transform: translateY(0); }
+  .sheet-handle{ width:36px; height:4px; background: var(--border); border-radius:99px; margin: 6px auto 16px; }
+  .sheet-label{ font-size:12px; color: var(--sub); text-transform:uppercase; letter-spacing:.4px; margin: 14px 0 10px; }
+  .theme-row{ display:flex; gap:12px; }
+  .theme-opt{
+    flex:1; border-radius:12px; border:2px solid var(--border); cursor:pointer;
+    padding:12px 0; display:flex; flex-direction:column; align-items:center; gap:8px;
+  }
+  .theme-opt.active{ border-color: var(--accent); }
+  .swatch{ width:34px; height:34px; border-radius:50%; border:1px solid var(--border); }
+  .theme-opt span{ font-size:11.5px; color: var(--sub); }
+  .app-version{ text-align:center; font-size:11.5px; color: var(--sub); margin-top:22px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <div class="prompt">&gt;_</div>
+      <div class="title-wrap">
+        <div class="title">ScriptFinder</div>
+        <div class="subtitle" id="resultsSubtitle">Loading…</div>
+      </div>
+    </div>
+    <div class="dots-wrap">
+      <button class="dots-btn" id="dotsBtn" aria-label="Settings">&#8942;</button>
+      <div class="header-version">v1.0.0</div>
+    </div>
+  </header>
+
+  <main>
+    <div class="search-wrap">
+      <input type="text" class="search-input" id="searchInput" placeholder="Search scripts, tags, descriptions…" autocomplete="off">
+      <button class="clear-btn" id="clearBtn" aria-label="Clear">&#10005;</button>
+    </div>
+
+    <div class="chips" id="chips"></div>
+
+    <div class="results-count" id="resultsCount"></div>
+    <div class="list" id="list"></div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-label">Background theme</div>
+  <div class="theme-row">
+    <div class="theme-opt" data-theme="dark">
+      <div class="swatch" style="background:#000;"></div>
+      <span>Black</span>
+    </div>
+    <div class="theme-opt" data-theme="blue">
+      <div class="swatch" style="background:#0a2a6b;"></div>
+      <span>Blue</span>
+    </div>
+    <div class="theme-opt" data-theme="light">
+      <div class="swatch" style="background:#fff;"></div>
+      <span>White</span>
+    </div>
+  </div>
+  <div class="app-version">ScriptFinder v1.0.0</div>
+</div>
+
+<script>
+  // ---------------------------------------------------------------
+  // SCRIPT LIBRARY — edit this array with your real scripts & links.
+  // These are placeholder sample entries so you can see the layout;
+  // swap "url" for the actual GitHub / repo link for each script.
+  // ---------------------------------------------------------------
+  const SCRIPTS = [
+    { name: "EC2 AMI Lifecycle Tagging", category: "AWS", description: "Tags and cleans up EC2 AMIs on a rolling retention schedule.", url: "https://github.com/NetJimb/scripts" },
+    { name: "CloudTrail EC2 Tag Monitor", category: "AWS", description: "CLI-based monitor that watches CloudTrail for EC2 tag changes and alerts.", url: "https://github.com/NetJimb/scripts" },
+    { name: "EBS Volume Inventory", category: "AWS", description: "Pulls EBS volumes fleet-wide with tag extraction into a report.", url: "https://github.com/NetJimb/scripts" },
+    { name: ".NET Runtime Inventory & Install", category: "Windows Server", description: "Audits installed .NET runtimes (6/8/9/10) and installs missing versions.", url: "https://github.com/NetJimb/scripts" },
+    { name: "unlodctr Perflib Cleanup", category: "Windows Server", description: "Removes stale .NET 2.0 performance counter registry entries causing Perflib 1023 errors.", url: "https://github.com/NetJimb/scripts" },
+    { name: "SSL 2.0 Registry Disable", category: "Security", description: "Disables SSL 2.0 via SCHANNEL registry keys for scan remediation on Server 2012 R2.", url: "https://github.com/NetJimb/scripts" },
+    { name: "7-Zip Silent Upgrade", category: "Deployment", description: "Detects current 7-Zip version and performs a silent upgrade fleet-wide.", url: "https://github.com/NetJimb/scripts" },
+    { name: "VS Code Silent Install", category: "Deployment", description: "Unattended VS Code install/update for workstation provisioning.", url: "https://github.com/NetJimb/scripts" },
+    { name: "Firefox Detection", category: "Deployment", description: "Scans the fleet for installed Firefox versions ahead of patching.", url: "https://github.com/NetJimb/scripts" },
+    { name: "Mouse Without Borders Manager", category: "Utilities", description: "Manages Mouse Without Borders config and hotkey automation across machines.", url: "https://github.com/NetJimb/scripts" },
+    { name: "PowerShell Profile Customization", category: "Utilities", description: "Sets up the ll alias and MyGit navigation function in $PROFILE.", url: "https://github.com/NetJimb/scripts" },
+    { name: "DocViewer SPN Diagnostic", category: "Active Directory", description: "Checks SPN ownership on AD computer objects to catch Kerberos mismatches before a cutover.", url: "https://github.com/NetJimb/scripts" }
+  ];
+
+  const listEl = document.getElementById('list');
+  const chipsEl = document.getElementById('chips');
+  const searchInput = document.getElementById('searchInput');
+  const clearBtn = document.getElementById('clearBtn');
+  const resultsCount = document.getElementById('resultsCount');
+  const resultsSubtitle = document.getElementById('resultsSubtitle');
+
+  let activeCategory = 'All';
+  let query = '';
+
+  function buildChips(){
+    const cats = ['All', ...new Set(SCRIPTS.map(s => s.category))];
+    chipsEl.innerHTML = cats.map(c =>
+      `<div class="chip${c === activeCategory ? ' active' : ''}" data-cat="${c}">${c}</div>`
+    ).join('');
+    chipsEl.querySelectorAll('.chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        activeCategory = chip.dataset.cat;
+        buildChips();
+        render();
+      });
+    });
+  }
+
+  function render(){
+    const q = query.trim().toLowerCase();
+    const filtered = SCRIPTS.filter(s => {
+      const matchesCat = activeCategory === 'All' || s.category === activeCategory;
+      const matchesQuery = !q ||
+        s.name.toLowerCase().includes(q) ||
+        s.description.toLowerCase().includes(q) ||
+        s.category.toLowerCase().includes(q);
+      return matchesCat && matchesQuery;
+    }).sort((a, b) => a.name.localeCompare(b.name));
+
+    resultsCount.textContent = filtered.length === SCRIPTS.length
+      ? ''
+      : `${filtered.length} of ${SCRIPTS.length} scripts`;
+    resultsSubtitle.textContent = `${SCRIPTS.length} script${SCRIPTS.length === 1 ? '' : 's'} indexed`;
+
+    if(filtered.length === 0){
+      listEl.innerHTML = `
+        <div class="empty">
+          <div class="empty-title">No scripts found</div>
+          <div>Try a different search term or category.</div>
+        </div>`;
+      return;
+    }
+
+    listEl.innerHTML = filtered.map(s => `
+      <a class="card" href="${s.url}" target="_blank" rel="noopener">
+        <div class="card-top">
+          <div class="card-name">${escapeHtml(s.name)}</div>
+          <div class="card-cat">${escapeHtml(s.category)}</div>
+        </div>
+        <div class="card-desc">${escapeHtml(s.description)}</div>
+        <div class="card-link">&#8599; View script</div>
+      </a>
+    `).join('');
+  }
+
+  function escapeHtml(str){
+    return str.replace(/[&<>"']/g, m => ({
+      '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+    }[m]));
+  }
+
+  searchInput.addEventListener('input', () => {
+    query = searchInput.value;
+    clearBtn.classList.toggle('show', query.length > 0);
+    render();
+  });
+  clearBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    query = '';
+    clearBtn.classList.remove('show');
+    searchInput.focus();
+    render();
+  });
+
+  // Settings sheet + theme
+  const dotsBtn = document.getElementById('dotsBtn');
+  const overlay = document.getElementById('overlay');
+  const sheet = document.getElementById('sheet');
+  const themeOpts = document.querySelectorAll('.theme-opt');
+
+  const THEMES = {
+    dark:  { bg:'#000000', fg:'#ffffff', sub:'#9a9a9a', card:'#141414', border:'#2a2a2a', accent:'#5391fe' },
+    blue:  { bg:'#0a2a6b', fg:'#ffe066', sub:'#c9b96a', card:'#0d3384', border:'#1c4494', accent:'#ffe066' },
+    light: { bg:'#ffffff', fg:'#000000', sub:'#666666', card:'#f4f4f4', border:'#dcdcdc', accent:'#0055cc' }
+  };
+
+  function applyTheme(name){
+    const t = THEMES[name];
+    const root = document.documentElement.style;
+    root.setProperty('--bg', t.bg);
+    root.setProperty('--fg', t.fg);
+    root.setProperty('--sub', t.sub);
+    root.setProperty('--card', t.card);
+    root.setProperty('--border', t.border);
+    root.setProperty('--accent', t.accent);
+    themeOpts.forEach(o => o.classList.toggle('active', o.dataset.theme === name));
+    localStorage.setItem('scriptfinder-theme', name);
+  }
+
+  themeOpts.forEach(opt => {
+    opt.addEventListener('click', () => applyTheme(opt.dataset.theme));
+  });
+
+  function openSheet(){ overlay.classList.add('show'); sheet.classList.add('show'); }
+  function closeSheet(){ overlay.classList.remove('show'); sheet.classList.remove('show'); }
+  dotsBtn.addEventListener('click', openSheet);
+  overlay.addEventListener('click', closeSheet);
+
+  // Init
+  applyTheme(localStorage.getItem('scriptfinder-theme') || 'dark');
+  buildChips();
+  render();
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ScriptFinder — Version 1.0.0 -->
+<!-- ScriptFinder — Version 1.1.0 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -128,6 +128,13 @@
   .swatch{ width:34px; height:34px; border-radius:50%; border:1px solid var(--border); }
   .theme-opt span{ font-size:11.5px; color: var(--sub); }
   .app-version{ text-align:center; font-size:11.5px; color: var(--sub); margin-top:22px; }
+  .refresh-btn{
+    width:100%; padding:11px 0; border-radius:10px; border:1px solid var(--border);
+    background:var(--bg); color:var(--fg); font-size:14px; cursor:pointer;
+  }
+  .refresh-btn:active{ border-color: var(--accent); }
+  .refresh-btn.loading{ opacity:.6; pointer-events:none; }
+  .last-updated{ text-align:center; font-size:11.5px; color:var(--sub); margin-top:8px; }
 </style>
 </head>
 <body>
@@ -142,7 +149,7 @@
     </div>
     <div class="dots-wrap">
       <button class="dots-btn" id="dotsBtn" aria-label="Settings">&#8942;</button>
-      <div class="header-version">v1.0.0</div>
+      <div class="header-version">v1.1.0</div>
     </div>
   </header>
 
@@ -177,16 +184,22 @@
       <span>White</span>
     </div>
   </div>
-  <div class="app-version">ScriptFinder v1.0.0</div>
+  <div class="sheet-label">Script index</div>
+  <button class="refresh-btn" id="refreshBtn">&#8635; Refresh from GitHub</button>
+  <div class="last-updated" id="lastUpdated"></div>
+
+  <div class="app-version">ScriptFinder v1.1.0</div>
 </div>
 
 <script>
   // ---------------------------------------------------------------
-  // SCRIPT LIBRARY — edit this array with your real scripts & links.
-  // These are placeholder sample entries so you can see the layout;
-  // swap "url" for the actual GitHub / repo link for each script.
+  // SCRIPT LIBRARY — this is fallback/placeholder data only, used if
+  // the live /api/scripts endpoint isn't reachable (e.g. viewing this
+  // file directly on GitHub Pages instead of through the auth Worker).
+  // When served through the Worker, loadScripts() below replaces this
+  // with a live scan of github.com/NetJimb/scripts.
   // ---------------------------------------------------------------
-  const SCRIPTS = [
+  let SCRIPTS = [
     { name: "EC2 AMI Lifecycle Tagging", category: "AWS", description: "Tags and cleans up EC2 AMIs on a rolling retention schedule.", url: "https://github.com/NetJimb/scripts" },
     { name: "CloudTrail EC2 Tag Monitor", category: "AWS", description: "CLI-based monitor that watches CloudTrail for EC2 tag changes and alerts.", url: "https://github.com/NetJimb/scripts" },
     { name: "EBS Volume Inventory", category: "AWS", description: "Pulls EBS volumes fleet-wide with tag extraction into a report.", url: "https://github.com/NetJimb/scripts" },
@@ -315,10 +328,52 @@
   dotsBtn.addEventListener('click', openSheet);
   overlay.addEventListener('click', closeSheet);
 
+  // --- Live script index (via the auth Worker's /api/scripts endpoint) ---
+  const refreshBtn = document.getElementById('refreshBtn');
+  const lastUpdatedEl = document.getElementById('lastUpdated');
+  let lastUpdated = null;
+
+  function formatRelativeTime(iso){
+    if(!iso) return '';
+    const diffMs = Date.now() - new Date(iso).getTime();
+    const mins = Math.round(diffMs / 60000);
+    if(mins < 1) return 'Updated just now';
+    if(mins < 60) return `Updated ${mins}m ago`;
+    const hrs = Math.round(mins / 60);
+    if(hrs < 24) return `Updated ${hrs}h ago`;
+    return `Updated ${Math.round(hrs / 24)}d ago`;
+  }
+
+  async function loadScripts(forceRefresh){
+    if(forceRefresh){
+      refreshBtn.classList.add('loading');
+      refreshBtn.textContent = '\u21bb Refreshing…';
+    }
+    try{
+      const resp = await fetch(`/api/scripts${forceRefresh ? '?refresh=1' : ''}`);
+      if(!resp.ok) throw new Error('API not reachable');
+      const data = await resp.json();
+      SCRIPTS = data.scripts;
+      lastUpdated = data.updated;
+    }catch(err){
+      // Not served through the Worker (or the API failed) — keep placeholder data.
+      console.warn('Live script index unavailable, using placeholder data.', err);
+    }
+    activeCategory = 'All';
+    buildChips();
+    render();
+    lastUpdatedEl.textContent = lastUpdated ? formatRelativeTime(lastUpdated) : 'Showing placeholder data';
+    refreshBtn.classList.remove('loading');
+    refreshBtn.innerHTML = '&#8635; Refresh from GitHub';
+  }
+
+  refreshBtn.addEventListener('click', () => loadScripts(true));
+
   // Init
   applyTheme(localStorage.getItem('scriptfinder-theme') || 'dark');
   buildChips();
   render();
+  loadScripts(false);
 </script>
 </body>
 </html>
